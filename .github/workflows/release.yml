@@ -27,7 +27,50 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="v0.1.$(date +%Y%m%d%H%M%S)"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           gh release create "$TAG" \
             dist/plop \
             --title "Plop CLI $TAG" \
             --notes "Self-contained macOS (arm64) binary."
+
+      - name: Update Homebrew formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          DOWNLOAD_URL="https://github.com/Begin-Software/plop-cli/releases/download/${TAG}/plop"
+          SHA256=$(curl -sL "$DOWNLOAD_URL" | shasum -a 256 | cut -d' ' -f1)
+          VERSION="${TAG#v}"
+
+          cat > /tmp/plop.rb <<EOF
+          class Plop < Formula
+            desc "Put a file on the web. File hosting for AI coding agents."
+            homepage "https://plop.so"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "${DOWNLOAD_URL}"
+                sha256 "${SHA256}"
+              end
+            end
+
+            def install
+              bin.install "plop"
+            end
+
+            test do
+              assert_match "plop", shell_output("#{bin}/plop version")
+            end
+          end
+          EOF
+
+          cd /tmp
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/Begin-Software/homebrew-tap.git"
+          cp /tmp/plop.rb homebrew-tap/Formula/plop.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/plop.rb
+          git commit -m "Update plop to ${VERSION}"
+          git push
