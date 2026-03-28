@@ -1,5 +1,4 @@
 import { getToken } from "./auth";
-import { exec } from "child_process";
 
 const API_URL = "https://plop.so";
 
@@ -13,9 +12,7 @@ function requireToken(): string {
 }
 
 function openUrl(url: string): void {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  exec(`${cmd} "${url}"`);
+  Bun.spawn(["open", url]);
 }
 
 export async function addDomain(hostname: string): Promise<void> {
