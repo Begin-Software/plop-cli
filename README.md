@@ -18,7 +18,7 @@ plop upload index.html ccar.se/games
 ## Install
 
 ```
-curl -fsSL https://plop.so/install.sh | sh
+brew install begin-software/tap/plop
 ```
 
 ## Commands
