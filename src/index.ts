@@ -5,7 +5,6 @@ import { upload } from "./upload";
 import { del } from "./delete";
 import { claim } from "./claim";
 import { addDomain, removeDomain, listDomains } from "./domains";
-import { mcp } from "./mcp";
 
 const [cmd, ...args] = process.argv.slice(2);
 
@@ -51,15 +50,11 @@ switch (cmd) {
     }
     break;
 
-  case "mcp":
-    await mcp();
-    break;
-
   case "version":
     console.log("plop 0.1.0");
     break;
 
   default:
-    console.log("Usage: plop <login|upload|delete|claim|domains|mcp|version>");
+    console.log("Usage: plop <login|upload|delete|claim|domains|version>");
     process.exit(cmd ? 1 : 0);
 }
