@@ -17,10 +17,16 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install and build
+      - name: Install
+        run: bun install
+
+      - name: Build all targets
         run: |
-          bun install
-          bun run build
+          bun build ./src/index.ts --compile --target=bun-darwin-arm64 --outfile dist/plop-darwin-arm64
+          bun build ./src/index.ts --compile --target=bun-darwin-x64 --outfile dist/plop-darwin-x64
+          bun build ./src/index.ts --compile --target=bun-linux-x64 --outfile dist/plop-linux-x64
+          bun build ./src/index.ts --compile --target=bun-linux-arm64 --outfile dist/plop-linux-arm64
+          bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile dist/plop-windows-x64.exe
 
       - name: Create release
         env:
@@ -29,16 +35,23 @@ jobs:
           TAG="v0.1.$(date +%Y%m%d%H%M%S)"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           gh release create "$TAG" \
-            dist/plop \
+            dist/plop-darwin-arm64 \
+            dist/plop-darwin-x64 \
+            dist/plop-linux-x64 \
+            dist/plop-linux-arm64 \
+            dist/plop-windows-x64.exe \
             --title "Plop CLI $TAG" \
-            --notes "Self-contained macOS (arm64) binary."
+            --notes "Self-contained binaries for macOS (arm64, x64), Linux (x64, arm64), and Windows (x64)."
 
       - name: Update Homebrew formula
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          DOWNLOAD_URL="https://github.com/Begin-Software/plop-cli/releases/download/${TAG}/plop"
-          SHA256=$(curl -sL "$DOWNLOAD_URL" | shasum -a 256 | cut -d' ' -f1)
+          BASE_URL="https://github.com/Begin-Software/plop-cli/releases/download/${TAG}"
+          SHA_DARWIN_ARM64=$(curl -sL "${BASE_URL}/plop-darwin-arm64" | shasum -a 256 | cut -d' ' -f1)
+          SHA_DARWIN_X64=$(curl -sL "${BASE_URL}/plop-darwin-x64" | shasum -a 256 | cut -d' ' -f1)
+          SHA_LINUX_X64=$(curl -sL "${BASE_URL}/plop-linux-x64" | shasum -a 256 | cut -d' ' -f1)
+          SHA_LINUX_ARM64=$(curl -sL "${BASE_URL}/plop-linux-arm64" | shasum -a 256 | cut -d' ' -f1)
           VERSION="${TAG#v}"
 
           cat > /tmp/plop.rb <<EOF
@@ -50,13 +63,26 @@ jobs:
 
             on_macos do
               if Hardware::CPU.arm?
-                url "${DOWNLOAD_URL}"
-                sha256 "${SHA256}"
+                url "${BASE_URL}/plop-darwin-arm64"
+                sha256 "${SHA_DARWIN_ARM64}"
+              else
+                url "${BASE_URL}/plop-darwin-x64"
+                sha256 "${SHA_DARWIN_X64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "${BASE_URL}/plop-linux-arm64"
+                sha256 "${SHA_LINUX_ARM64}"
+              else
+                url "${BASE_URL}/plop-linux-x64"
+                sha256 "${SHA_LINUX_X64}"
               end
             end
 
             def install
-              bin.install "plop"
+              bin.install stable.url.split("/").last => "plop"
             end
 
             test do
