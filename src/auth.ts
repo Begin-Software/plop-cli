@@ -60,7 +60,10 @@ export async function login(): Promise<void> {
   console.log(`Code:  ${user_code}\n`);
 
   // Open browser
-  Bun.spawn(["open", verification_uri_complete]);
+  const openCmd = process.platform === "win32" ? ["cmd", "/c", "start", verification_uri_complete]
+    : process.platform === "darwin" ? ["open", verification_uri_complete]
+    : ["xdg-open", verification_uri_complete];
+  Bun.spawn(openCmd);
 
   // Poll for token
   while (true) {

@@ -12,7 +12,10 @@ function requireToken(): string {
 }
 
 function openUrl(url: string): void {
-  Bun.spawn(["open", url]);
+  const cmd = process.platform === "win32" ? ["cmd", "/c", "start", url]
+    : process.platform === "darwin" ? ["open", url]
+    : ["xdg-open", url];
+  Bun.spawn(cmd);
 }
 
 export async function addDomain(hostname: string): Promise<void> {
