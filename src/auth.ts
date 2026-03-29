@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-const AUTH0_DOMAIN = "dev-q4qag76qq7ai5we8.us.auth0.com";
+const AUTH0_DOMAIN = "auth.plop.so";
 const AUTH0_CLIENT_ID = "dDnceSVZAPSIYd2nZtt31FkCqpx8HTTl";
 const AUTH0_AUDIENCE = "https://plop.so";
 const CONFIG_DIR = join(homedir(), ".plop");
