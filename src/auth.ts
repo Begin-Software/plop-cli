@@ -2,9 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
-const AUTH0_DOMAIN = "auth.plop.so";
-const AUTH0_CLIENT_ID = "dDnceSVZAPSIYd2nZtt31FkCqpx8HTTl";
-const AUTH0_AUDIENCE = "https://plop.so";
+const PLOP_URL = "https://plop.so";
 const CONFIG_DIR = join(homedir(), ".plop");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
@@ -27,13 +25,11 @@ export function getToken(): string | null {
 }
 
 export async function login(): Promise<void> {
-  // Request device code
-  const codeRes = await fetch(`https://${AUTH0_DOMAIN}/oauth/device/code`, {
+  // Request device code from better-auth
+  const codeRes = await fetch(`${PLOP_URL}/api/auth/device/code`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: AUTH0_CLIENT_ID,
-      audience: AUTH0_AUDIENCE,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       scope: "openid",
     }),
   });
@@ -48,47 +44,56 @@ export async function login(): Promise<void> {
     device_code,
     user_code,
     verification_uri_complete,
+    verification_uri,
     interval = 5,
+    expires_in = 1800,
   } = (await codeRes.json()) as {
     device_code: string;
     user_code: string;
+    verification_uri: string;
     verification_uri_complete: string;
     interval: number;
+    expires_in: number;
   };
 
-  console.log(`\nVisit: ${verification_uri_complete}`);
+  const verifyUrl = verification_uri_complete || verification_uri;
+  console.log(`\nVisit: ${verifyUrl}`);
   console.log(`Code:  ${user_code}\n`);
 
   // Open browser
-  const openCmd = process.platform === "win32" ? ["cmd", "/c", "start", verification_uri_complete]
-    : process.platform === "darwin" ? ["open", verification_uri_complete]
-    : ["xdg-open", verification_uri_complete];
+  const openCmd = process.platform === "win32" ? ["cmd", "/c", "start", verifyUrl]
+    : process.platform === "darwin" ? ["open", verifyUrl]
+    : ["xdg-open", verifyUrl];
   Bun.spawn(openCmd);
 
   // Poll for token
-  while (true) {
-    await Bun.sleep(interval * 1000);
+  const deadline = Date.now() + expires_in * 1000;
+  let pollInterval = interval;
 
-    const tokenRes = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
+  while (Date.now() < deadline) {
+    await Bun.sleep(pollInterval * 1000);
+
+    const tokenRes = await fetch(`${PLOP_URL}/api/auth/device/token`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-        client_id: AUTH0_CLIENT_ID,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         device_code,
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       }),
     });
 
     const body = (await tokenRes.json()) as {
       access_token?: string;
+      token?: string;
       expires_in?: number;
       error?: string;
     };
 
-    if (body.access_token) {
+    const token = body.access_token || body.token;
+    if (token) {
       mkdirSync(CONFIG_DIR, { recursive: true });
       const config: TokenConfig = {
-        access_token: body.access_token,
+        access_token: token,
         expires_at: Date.now() + (body.expires_in || 86400) * 1000,
       };
       writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -98,11 +103,14 @@ export async function login(): Promise<void> {
 
     if (body.error === "authorization_pending") continue;
     if (body.error === "slow_down") {
-      await Bun.sleep(2000);
+      pollInterval += 1;
       continue;
     }
 
     console.error(`Auth failed: ${body.error}`);
     process.exit(1);
   }
+
+  console.error("Device code expired. Please try again.");
+  process.exit(1);
 }
