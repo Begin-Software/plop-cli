@@ -30,6 +30,7 @@ export async function login(): Promise<void> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      client_id: "plop-cli",
       scope: "openid",
     }),
   });
@@ -77,6 +78,7 @@ export async function login(): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        client_id: "plop-cli",
         device_code,
         grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       }),
